@@ -20,13 +20,16 @@
         Require all granted
         DirectoryIndex index.html
     </Directory>
-    <Directory /var/www/html/restaurantOrderApp/usuaris>
+    <Directory /var/www/html/restaurantOrderApp/users>
         Require all denied
     </Directory>
-    <Directory /var/www/html/restaurantOrderApp/comandes>
+    <Directory /var/www/html/restaurantOrderApp/orders>
         Require all denied
     </Directory>
-    <Directory /var/www/html/restaurantOrderApp/desplegament>
+    <Directory /var/www/html/restaurantOrderApp/deployment>
+        Require all denied
+    </Directory>
+    <Directory /var/www/html/restaurantOrderApp/tests>
         Require all denied
     </Directory>
     <DirectoryMatch "/\.">

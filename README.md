@@ -12,39 +12,51 @@ The existing checkout is the application root (the assignment calls this directo
 
 For development only, run `php -S 127.0.0.1:8080 -t .` from the project root and visit `http://127.0.0.1:8080`. The PHP development server does **not** process `.htaccess`; use it only on a trusted local machine, since the JSON files are not protected by Apache there. Production must use Apache and HTTPS.
 
-Adapt `desplegament/apache-ssl.conf.example` to the actual hostname, root path, and issued TLS certificates, then enable it in Apache. It redirects HTTP to HTTPS. HTTPS is only active once the real server and certificates have been configured; the sample configuration does not provision them. HTTPS requests use secure, HttpOnly, SameSite session cookies.
+For this local Apache checkout, run `sudo sh deployment/setup-local.sh` from a terminal. It enables HTTPS at `https://localhost/restaurantOrderApp/`, redirects this application's HTTP requests, and configures the orders directory permissions. The local certificate is self-signed and must be verified and trusted locally for browser testing. The script requires the administrator password and does not change the predefined user. Activation has not yet been completed because administrator authentication is required.
 
-Allow Apache's PHP process to create and update files in `comandes/` and read `usuaris/users.json`. Keep the users file read-only to the application. Do not use world-writable permissions. Enable `AllowOverride All` for the root so the `.htaccess` protections take effect. Direct requests to `usuaris/users.json` and `comandes/orders.json` must return 403 on Apache.
+For production, adapt `deployment/apache-ssl.conf.example` to the actual hostname, root path, and issued, trusted TLS certificates, then enable it in Apache. HTTPS requests use secure, HttpOnly, SameSite session cookies.
 
-The only predefined user is `admin`, with the exact bcrypt hash supplied by the assignment. **The plaintext password was not supplied and has not been invented or changed.** Use the password provided by the instructor. There is no registration or user-editing feature.
+Allow Apache's PHP process to create and update files in `orders/` and read `users/users.json`. Keep the users file read-only to the application. Do not use world-writable permissions. Enable `AllowOverride All` for the root so the `.htaccess` protections take effect. Direct requests to `users/users.json` and `orders/orders.json` must return 403 on Apache.
 
-Folder names are in Catalan as requested; filenames and the user interface remain in English.
+The configured user is `admin`. At the user's request, the example password hash has been replaced with a bcrypt hash of their chosen project password. Only the hash is stored in `users/users.json`.
+
+To choose your own username and password, run this command from the project root in your terminal:
+
+```sh
+php deployment/set-user.php
+```
+
+Enter your username, password and password confirmation when prompted. Password input is hidden in an interactive terminal. The tool replaces the configured account only when validation succeeds, and stores a bcrypt hash rather than the plaintext password. Passwords must contain 8 to 72 bytes. Sign out of existing sessions before using the changed account. This is a CLI configuration tool, unavailable over HTTP; the website's sign-in form only authenticates existing accounts.
+
+Folder names, filenames and the interface are in English, as confirmed by the user to meet the rubric.
 
 ## Layout
 
 ```text
 index.html                      Application entry
-aplicacio/client/index.html   English screens and forms
-aplicacio/client/styles.css   Responsive presentation
-aplicacio/client/app.js       Interface events and HTTP requests
-aplicacio/servidor/common.php   Session, shared functions, product catalogue
-aplicacio/servidor/session.php  GET session and CSRF token
-aplicacio/servidor/authenticate.php  POST authentication
-aplicacio/servidor/logout.php   POST sign out
-aplicacio/servidor/products.php GET server-formatted catalogue
-aplicacio/servidor/create-order.php POST validation, calculation, persistence
-aplicacio/servidor/view-orders.php  GET all orders, or ?id=ORDER-ID
-usuaris/users.json                Unmodified predefined account
-comandes/orders.json              Created automatically on first saved order
-desplegament/                     Apache HTTPS example
+application/client/index.html   English screens and forms
+application/client/styles.css   Responsive presentation
+application/client/app.js       Interface events and HTTP requests
+application/server/common.php   Session, shared functions, product catalogue
+application/server/session.php  GET session and CSRF token
+application/server/authenticate.php  POST authentication
+application/server/logout.php   POST sign out
+application/server/products.php GET server-formatted catalogue
+application/server/create-order.php POST validation, calculation, persistence
+application/server/view-orders.php  GET all orders, or ?id=ORDER-ID
+users/users.json                Configured account with bcrypt password hash
+orders/orders.json              Created automatically on first saved order
+deployment/                     Apache HTTPS example
+tests/integration.php           Isolated PHP HTTP integration checks
+RUBRIC.md                       Evidence and presentation checklist
 ```
 
 ## Using the application
 
 1. Open the home screen, read the guide, and sign in.
-2. Select an operation in the menu and press Continue.
+2. Click “Create a new order” or “View orders” in the operations menu.
 3. To create an order, enter a unique order ID, full customer name, address, email, and phone. Check at least one product, enter a quantity from 1 to 10,000, and save. The server returns only the formatted total including VAT on success, with HTTP 200.
-4. To review orders, select all orders or one order by its exact, case-sensitive ID. The server returns HTML tables and HTTP 200. Missing files and missing IDs return an HTML error page and HTTP 404, with links to the order menu, operations menu, and home.
+4. To review orders, click “View orders”, choose all orders or one order by ID, and press the single “Continue” button. For one order, enter its exact, case-sensitive ID on the next screen and click “Find order”. The server returns HTML tables and HTTP 200. Missing files and missing IDs return an HTML error page and HTTP 404, with links to the order menu, operations menu, and home.
 
 Authentication failure displays an error and returns to the home screen. Protected server operations independently verify the session. POST endpoints also validate a session CSRF token. Duplicate IDs return 409; invalid fields return 422; unauthenticated requests return 401; incorrect HTTP methods return 405.
 
@@ -56,10 +68,10 @@ The attachment contains two inconsistencies: it sometimes says `orders.js`, alth
 
 ## Verification
 
-On a configured PHP and Apache server, manually verify sign-in, required fields, product selection, order creation, duplicate IDs, and order lookup. A notebook and two bottles must produce a total of €72.60 including VAT. Check that missing orders and unavailable storage return HTTP 404, and that protected operations require sign-in. Confirm HTTPS and the Apache restrictions on direct JSON access.
+Run `php tests/integration.php`. All 49 checks passed against an isolated copy with temporary credentials and order storage. No Python is required. All PHP files passed `php -l`. Apache's session endpoint was independently confirmed to return HTTP 200 and JSON with PHP 8.4 installed.
 
-PHP and Apache are not installed in the provided editing environment, so runtime verification and HTTPS activation require a PHP-enabled machine.
+The current Apache configuration ignores `.htaccess`: a direct request to `users/users.json` returned HTTP 200 during verification. Activate the prepared setup before using real credentials or customer records, then confirm direct JSON requests return 403. Also walk through the browser screens and confirm HTTPS. See `RUBRIC.md` for the complete evidence, remaining deployment checks and presentation sequence. No browser automation was available for this review.
 
 ## Version control
 
-The supplied workspace has no usable Git repository. Initialize a repository in a writable checkout, review the files, commit, and connect the GitHub repository supplied by the project owner. Runtime `comandes/orders.json` is ignored to avoid committing customer records. No GitHub repository, submission URL, fabricated commit history, or public deployment has been created.
+The workspace has an existing Git repository and an origin at https://github.com/MarSalonParera/daw2_salon_mar_pj6f4a11. Existing commits record the initial structure and subsequent implementation. Review the final changes, commit them and push to the intended branch before submitting the repository URL. Runtime `orders/orders.json` is ignored to avoid committing customer records. No commit history has been fabricated and no GitHub push has been performed during this review. Submission and presentation deadlines were not supplied.

@@ -3,7 +3,7 @@
 // Only interface state lives here. Order records and arithmetic stay on the server.
 let token = '';
 let signedIn = false;
-const protectedScreens = ['operations', 'create', 'view'];
+const protectedScreens = ['operations', 'create', 'view', 'find'];
 
 function showNotice(message) {
   const notice = document.getElementById('notice');
@@ -12,9 +12,30 @@ function showNotice(message) {
 }
 
 async function request(endpoint, options = {}) {
-  const response = await fetch('../servidor/' + endpoint, { credentials: 'same-origin', ...options });
-  const data = await response.json();
+  const response = await fetch('../server/' + endpoint, { credentials: 'same-origin', ...options });
+  const data = await readJsonResponse(response);
   if (!response.ok) throw new Error(data.error || 'The request could not be completed.');
+  return data;
+}
+
+async function readJsonResponse(response) {
+  const body = await response.text();
+  if (body.trimStart().startsWith('<?php')) {
+    throw new Error('PHP is not running on this server. Open the application through an Apache server configured with PHP.');
+  }
+  const type = response.headers.get('Content-Type') || '';
+  if (!type.toLowerCase().includes('application/json')) {
+    throw new Error('The server returned an unexpected response (HTTP ' + response.status + '). Check that the PHP endpoint exists and PHP is enabled.');
+  }
+  let data;
+  try {
+    data = JSON.parse(body);
+  } catch {
+    throw new Error('The server returned invalid JSON (HTTP ' + response.status + '). Check the PHP error log.');
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('The server returned an invalid response. Check the PHP endpoint.');
+  }
   return data;
 }
 
@@ -39,7 +60,7 @@ async function navigate() {
     return;
   }
   document.querySelectorAll('.screen').forEach(screen => { screen.hidden = screen.id !== page; });
-  document.title = document.querySelector('#' + page + ' h1').textContent + ' · Order Management';
+  document.title = document.querySelector('#' + page + ' h1').textContent + ' · CALLA I MENJA';
   if (page === 'create') await loadProducts();
 }
 
@@ -90,11 +111,23 @@ async function loadProducts() {
 async function authenticate(event) {
   event.preventDefault();
   const form = event.currentTarget;
+  const username = form.querySelector('[name="user"]');
+  const password = form.querySelector('[name="password"]');
+  username.value = username.value.trim();
+  if (!username.value || !password.value.trim()) {
+    showNotice('Enter your username and password.');
+    if (!username.value) username.focus();
+    else password.focus();
+    return;
+  }
+  if (!form.reportValidity()) return;
   const button = form.querySelector('button');
   const data = new FormData(form);
   data.append('token', token);
   button.disabled = true;
   try {
+    if (!token) await refreshSession();
+    data.set('token', token);
     const session = await request('authenticate.php', { method: 'POST', body: data });
     token = session.token;
     updateAccount(session.user);
@@ -125,7 +158,7 @@ async function saveOrder(event) {
   const data = new FormData(form);
   data.append('token', token);
   try {
-    const response = await fetch('../servidor/create-order.php', { method: 'POST', body: data, credentials: 'same-origin' });
+    const response = await fetch('../server/create-order.php', { method: 'POST', body: data, credentials: 'same-origin' });
     const type = response.headers.get('Content-Type') || '';
     if (type.includes('text/html')) {
       const html = await response.text();
@@ -140,12 +173,19 @@ async function saveOrder(event) {
       return;
     }
     if (!response.ok) {
-      const error = await response.json();
+      const error = await readJsonResponse(response);
       throw new Error(error.error || 'The order could not be saved.');
     }
+    if (!type.toLowerCase().startsWith('text/plain')) {
+      throw new Error('The server returned an unexpected response. Check that PHP is enabled before saving an order.');
+    }
+    const total = await response.text();
+    if (!/^€[\d,]+\.\d{2}$/.test(total)) {
+      throw new Error('The server did not return an order total. Check the PHP error log before trying again.');
+    }
     // The successful response contains just the server-formatted total.
-    document.getElementById('order-result').innerHTML = '<p class="eyebrow">ORDER SAVED SUCCESSFULLY</p><h2>Total including 21% VAT: <span id="order-total"></span></h2><p>Your order is now available in the order history.</p><a class="text-link" href="../servidor/view-orders.php">View order history →</a>';
-    document.getElementById('order-total').textContent = await response.text();
+    document.getElementById('order-result').innerHTML = '<p class="eyebrow">ORDER SAVED SUCCESSFULLY</p><h2>Total including 21% VAT: <span id="order-total"></span></h2><p>Your order is now available in the order history.</p><a class="text-link" href="../server/view-orders.php">View order history →</a>';
+    document.getElementById('order-total').textContent = total;
     document.getElementById('order-result').className = 'success';
     document.getElementById('order-result').hidden = false;
     form.reset();
@@ -158,27 +198,23 @@ async function saveOrder(event) {
   }
 }
 
-function selectOrderView() {
-  const single = document.getElementById('view-option').value === 'one';
-  document.getElementById('search-field').hidden = !single;
-  document.getElementById('search-id').required = single;
+function openOrderView(event) {
+  event.preventDefault();
+  const operation = document.getElementById('view-option').value;
+  if (operation === 'all') {
+    location.assign('../server/view-orders.php');
+  } else if (operation === 'one') {
+    showNotice('');
+    location.hash = 'find';
+  } else {
+    showNotice('Choose an available operation.');
+  }
 }
 
 async function start() {
   document.getElementById('login-form').addEventListener('submit', authenticate);
   document.getElementById('order-form').addEventListener('submit', saveOrder);
-  document.getElementById('operations-form').addEventListener('submit', event => {
-    event.preventDefault();
-    showNotice('');
-    location.hash = document.getElementById('operation').value;
-  });
-  document.getElementById('view-option').addEventListener('change', selectOrderView);
-  document.getElementById('view-form').addEventListener('submit', event => {
-    event.preventDefault();
-    const url = new URL('../servidor/view-orders.php', location.href);
-    if (document.getElementById('view-option').value === 'one') url.searchParams.set('id', document.getElementById('search-id').value);
-    location.assign(url);
-  });
+  document.getElementById('view-menu-form').addEventListener('submit', openOrderView);
   document.getElementById('logout').addEventListener('click', async () => {
     const data = new FormData();
     data.append('token', token);
@@ -196,7 +232,7 @@ async function start() {
     } catch (error) { showNotice(error.message); }
   });
   window.addEventListener('hashchange', navigate);
-  try { await refreshSession(); } catch (error) { showNotice('The server is unavailable. Please check that PHP is running and reload the page.'); }
+  try { await refreshSession(); } catch (error) { showNotice(error.message); }
   await navigate();
 }
 

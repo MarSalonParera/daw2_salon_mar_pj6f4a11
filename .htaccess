@@ -1,4 +1,7 @@
 Options -Indexes
+<FilesMatch "^(README\.md|RUBRIC\.md|PRODUCTS\.md|.*\.conf\.example)$">
+    Require all denied
+</FilesMatch>
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
     Header always set Referrer-Policy "same-origin"

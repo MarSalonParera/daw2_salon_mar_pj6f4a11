@@ -7,7 +7,7 @@ const PRODUCTS = [
     'bag' => ['name' => 'Canvas tote bag', 'priceCents' => 1800],
     'lamp' => ['name' => 'Desk lamp', 'priceCents' => 4500],
 ];
-const ORDERS_FILE = __DIR__ . '/../../comandes/orders.json';
+const ORDERS_FILE = __DIR__ . '/../../orders/orders.json';
 
 ini_set('session.use_strict_mode', '1');
 session_set_cookie_params(['httponly' => true, 'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off', 'samesite' => 'Strict', 'path' => '/']);
@@ -17,7 +17,7 @@ header('X-Content-Type-Options: nosniff');
 
 function jsonResponse(array $data, int $status = 200): void {
     http_response_code($status);
-    header('Content-Type: aplicacio/json; charset=utf-8');
+    header('Content-Type: application/json; charset=utf-8');
     echo json_encode($data, JSON_THROW_ON_ERROR);
     exit;
 }
@@ -54,7 +54,7 @@ function money(int $cents): string {
 function renderPage(string $title, string $body, int $status = 200): void {
     http_response_code($status);
     header('Content-Type: text/html; charset=utf-8');
-    echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . escape($title) . ' · Order Management</title><link rel="stylesheet" href="../client/styles.css"></head><body><main class="report"><a class="brand" href="../client/index.html"><span class="logo">O</span> Order Management</a><section class="panel"><p class="eyebrow">ORDER RECORDS</p><h1>' . escape($title) . '</h1>' . $body . '<nav class="actions"><a class="button" href="../client/index.html#view">View orders</a><a class="button secondary" href="../client/index.html#operations">Operations menu</a><a class="text-link" href="../client/index.html">Home</a></nav></section></main></body></html>';
+    echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . escape($title) . ' · CALLA I MENJA</title><link rel="stylesheet" href="../client/styles.css"></head><body><main class="report"><a class="brand" href="../client/index.html"><img class="brand-logo" src="../../img/logo%20res.avif" alt="CALLA I MENJA logo"> CALLA I MENJA</a><section class="panel"><p class="eyebrow">ORDER RECORDS</p><h1>' . escape($title) . '</h1>' . $body . '<nav class="actions"><a class="button" href="../client/index.html#view">View orders</a><a class="button secondary" href="../client/index.html#operations">Operations menu</a><a class="text-link" href="../client/index.html">Home</a></nav></section></main></body></html>';
     exit;
 }
 
