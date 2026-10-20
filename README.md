@@ -38,6 +38,7 @@ application/client/index.html   English screens and forms
 application/client/styles.css   Responsive presentation
 application/client/app.js       Interface events and HTTP requests
 application/server/common.php   Session, shared functions, product catalogue
+application/server/data.php     Multidimensional runtime model and JSON adapters
 application/server/session.php  GET session and CSRF token
 application/server/authenticate.php  POST authentication
 application/server/logout.php   POST sign out
@@ -68,7 +69,24 @@ The file is `orders/orders.json` (`orders.js` in the attachment is a typo). At t
 
 ## Verification
 
-Run `php tests/integration.php`. All 52 checks passed against an isolated copy with temporary credentials and order storage. No Python is required. All PHP files passed `php -l`. Apache's session endpoint was independently confirmed to return HTTP 200 and JSON with PHP 8.4 installed.
+Run `php tests/integration.php`. All 63 checks passed against an isolated copy with temporary credentials and order storage. No Python is required. The checks include associative runtime collections, nested customer/pricing data, compatibility with existing JSON, multiple orders, and exact lookup of numeric-looking IDs. All PHP files passed `php -l`. Apache's session endpoint was independently confirmed to return HTTP 200 and JSON with PHP 8.4 installed.
+
+## Multidimensional associative runtime data
+
+Business logic uses named, nested PHP arrays throughout creation, authentication, lookup and rendering:
+
+```php
+$orders['order:ORD-001']['identity']['id'];
+$orders['order:ORD-001']['customer']['email'];
+$orders['order:ORD-001']['products']['bottle']['quantity'];
+$orders['order:ORD-001']['pricing']['totalCents'];
+$orders['order:ORD-001']['metadata']['createdBy'];
+$users['user:mar']['identity']['username'];
+$users['user:mar']['authentication']['passwordHash'];
+$products['bottle']['price'];
+```
+
+`data.php` converts the existing JSON lists into these associative runtime collections immediately after reading them. `encodeOrders()` converts them back only when writing, preserving the on-disk order format and the required users format. Prefixes keep identifiers such as `123` and `0123` distinct string keys. Lookup and duplicate detection use those keys directly. Empty collections, HTTP input/response fields, serialization lists and PHP API option arrays are boundary structures rather than alternative business data models.
 
 The current Apache configuration ignores `.htaccess`: a direct request to `users/users.json` returned HTTP 200 during verification. Activate the prepared setup before using real credentials or customer records, then confirm direct JSON requests return 403. Also walk through the browser screens and confirm HTTPS. See `RUBRIC.md` for the complete evidence, remaining deployment checks and presentation sequence. No browser automation was available for this review.
 

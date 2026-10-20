@@ -70,7 +70,7 @@ async function loadProducts() {
   try {
     const data = await request('products.php');
     container.replaceChildren();
-    data.products.forEach(product => {
+    Object.values(data.products).forEach(product => {
       const row = document.createElement('div');
       row.className = 'product-row';
       const label = document.createElement('label');

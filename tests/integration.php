@@ -3,9 +3,12 @@ declare(strict_types=1);
 
 // CLI only: all orders and test credentials live in a disposable project copy.
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
+require_once __DIR__ . '/../application/server/data.php';
 
 function check(bool $condition, string $description): void {
     if (!$condition) throw new RuntimeException('FAIL: ' . $description);
+    global $checkCount;
+    $checkCount = ($checkCount ?? 0) + 1;
     echo 'PASS: ' . $description . PHP_EOL;
 }
 
@@ -113,6 +116,7 @@ try {
     $token = json_decode($login['body'], true, 512, JSON_THROW_ON_ERROR)['token'];
     $products = json_decode($call('products.php')['body'], true, 512, JSON_THROW_ON_ERROR)['products'];
     check(count($products) === 4, 'Exactly four server-priced products');
+    check(!array_is_list($products) && isset($products['notebook']['price']), 'Catalogue uses associative product IDs');
     check($call('view-orders.php')['status'] === 404, 'Missing orders file returns 404');
     $order = ['token' => $token, 'id' => 'TEST-001', 'customerName' => '<script>alert(1)</script>', 'address' => 'Example Street, Barcelona', 'email' => 'test@example.com', 'phone' => '+34 123456789', 'selected' => ['notebook' => '1', 'bottle' => '1'], 'quantity' => ['notebook' => '1', 'bottle' => '2']];
     $missingStorage = $call('create-order.php', $order);
@@ -135,6 +139,13 @@ try {
     $records = json_decode(file_get_contents($storage), true, 512, JSON_THROW_ON_ERROR);
     check($records[0]['subtotalCents'] === 6000 && $records[0]['vatCents'] === 1260 && $records[0]['totalCents'] === 7260, 'Correct persisted subtotal, VAT and total');
     check($records[0]['createdBy'] === 'test-sales' && $records[0]['products']['bottle']['quantity'] === 2, 'Author, customer and product details persisted');
+    $model = decodeOrders(file_get_contents($storage));
+    check(isset($model['order:TEST-001']['customer']['email']) && !array_is_list($model), 'Runtime orders are indexed associative collections');
+    check($model['order:TEST-001']['pricing']['totalCents'] === 7260 && $model['order:TEST-001']['metadata']['createdBy'] === 'test-sales', 'Order model has nested pricing and metadata');
+    check($model['order:TEST-001']['products']['bottle']['quantity'] === 2, 'Products remain nested and keyed by product ID');
+    check(json_decode(encodeOrders($model), true, 512, JSON_THROW_ON_ERROR) === $records, 'Model conversion preserves existing JSON format and data');
+    $userModel = decodeUsers(file_get_contents($temporary . '/users/users.json'));
+    check(isset($userModel['user:test-sales']['identity']['username']) && password_verify('test-password-only', $userModel['user:test-sales']['authentication']['passwordHash']), 'Runtime users have nested identity and authentication');
     check($call('create-order.php', $order)['status'] === 409, 'Duplicate ID rejected');
     check(count(json_decode(file_get_contents($storage), true)) === 1, 'Duplicate does not change storage');
     foreach (['view-orders.php', 'view-orders.php?id=TEST-001'] as $endpoint) {
@@ -142,6 +153,12 @@ try {
         check($table['status'] === 200 && str_contains($table['body'], '€72.60') && str_contains($table['body'], 'Created at (UTC)'), $endpoint . ' returns complete table');
         check(!str_contains($table['body'], '<script>') && str_contains($table['body'], '&lt;script&gt;'), $endpoint . ' escapes customer input');
     }
+    foreach (['123', '0123'] as $numericId) {
+        check($call('create-order.php', array_replace($order, ['id' => $numericId]))['status'] === 200, 'Numeric-looking order ID remains a string: ' . $numericId);
+        check($call('view-orders.php?id=' . $numericId)['status'] === 200, 'Indexed lookup finds exact ID: ' . $numericId);
+    }
+    $multiple = decodeOrders(file_get_contents($storage));
+    check(count($multiple) === 3 && isset($multiple['order:123'], $multiple['order:0123'], $multiple['order:TEST-001']), 'Multiple orders and leading-zero IDs are preserved');
     $missing = $call('view-orders.php?id=UNKNOWN');
     check($missing['status'] === 404 && str_contains($missing['body'], '#view') && str_contains($missing['body'], '#operations'), 'Missing order returns 404 with navigation');
     check($call('view-orders.php?id=')['status'] === 422, 'Empty order lookup rejected');
@@ -158,7 +175,7 @@ try {
     check($call('logout.php', ['token' => $token])['status'] === 200, 'Logout succeeds');
     check($call('view-orders.php')['status'] === 401, 'Logout revokes order access');
     check($call('create-order.php', $order)['status'] === 401, 'Logout revokes writes');
-    echo "All isolated integration checks passed.\n";
+    echo "All " . $checkCount . " isolated integration checks passed.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, $error->getMessage() . PHP_EOL);
     $exitCode = 1;

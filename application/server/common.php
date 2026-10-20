@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/data.php';
+
 const PRODUCTS = [
     'notebook' => ['name' => 'Everyday notebook', 'priceCents' => 1200],
     'bottle' => ['name' => 'Steel water bottle', 'priceCents' => 2400],
@@ -58,25 +60,6 @@ function renderPage(string $title, string $body, int $status = 200): void {
     exit;
 }
 
-function decodeOrders(string $contents): array {
-    $orders = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
-    if (!is_array($orders) || !array_is_list($orders)) throw new RuntimeException('Invalid order list.');
-    foreach ($orders as $order) {
-        if (!is_array($order)) throw new RuntimeException('Invalid order record.');
-        foreach (['id', 'customerName', 'address', 'email', 'phone', 'createdBy', 'createdAt'] as $field) {
-            if (!isset($order[$field]) || !is_string($order[$field])) throw new RuntimeException('Invalid order field.');
-        }
-        foreach (['subtotalCents', 'vatCents', 'totalCents'] as $field) {
-            if (!isset($order[$field]) || !is_int($order[$field]) || $order[$field] < 0) throw new RuntimeException('Invalid order price.');
-        }
-        if (empty($order['products']) || !is_array($order['products'])) throw new RuntimeException('Invalid product list.');
-        foreach ($order['products'] as $product) {
-            if (!is_array($product) || !isset($product['name'], $product['quantity'], $product['priceCents']) || !is_string($product['name']) || !is_int($product['quantity']) || $product['quantity'] < 1 || !is_int($product['priceCents']) || $product['priceCents'] < 0) throw new RuntimeException('Invalid product.');
-        }
-    }
-    return $orders;
-}
-
 function readOrders(): array {
     $file = @fopen(ORDERS_FILE, 'rb');
     if ($file === false) renderPage('Orders file unavailable', '<p>The orders file could not be found or opened. Ask the administrator to check the file and its permissions.</p>', 404);
@@ -100,10 +83,11 @@ function orderTable(array $orders): string {
     $html = '<div class="table-scroll"><table><thead><tr><th>Order ID</th><th>Customer name</th><th>Address</th><th>Email</th><th>Phone</th><th>Products · quantity · unit price</th><th>Subtotal</th><th>VAT (21%)</th><th>Total including VAT</th><th>Created by</th><th>Created at (UTC)</th></tr></thead><tbody>';
     foreach ($orders as $order) {
         $html .= '<tr>';
-        foreach (['id', 'customerName', 'address', 'email', 'phone'] as $field) $html .= '<td>' . escape((string) $order[$field]) . '</td>';
+        $html .= '<td>' . escape($order['identity']['id']) . '</td>';
+        foreach ($order['customer'] as $value) $html .= '<td>' . escape($value) . '</td>';
         $html .= '<td><ul class="product-list">';
         foreach ($order['products'] as $product) $html .= '<li>' . escape($product['name']) . ' × ' . escape((string) $product['quantity']) . ' · ' . money($product['priceCents']) . '</li>';
-        $html .= '</ul></td><td>' . money($order['subtotalCents']) . '</td><td>' . money($order['vatCents']) . '</td><td><strong>' . money($order['totalCents']) . '</strong></td><td>' . escape($order['createdBy']) . '</td><td>' . escape($order['createdAt']) . '</td></tr>';
+        $html .= '</ul></td><td>' . money($order['pricing']['subtotalCents']) . '</td><td>' . money($order['pricing']['vatCents']) . '</td><td><strong>' . money($order['pricing']['totalCents']) . '</strong></td><td>' . escape($order['metadata']['createdBy']) . '</td><td>' . escape($order['metadata']['createdAt']) . '</td></tr>';
     }
     return $html . '</tbody></table></div>';
 }

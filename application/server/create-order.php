@@ -12,31 +12,31 @@ function orderInput(string $key, int $limit): string {
 
 function buildOrder(): array {
     $order = [
-        'id' => orderInput('id', 80),
-        'customerName' => orderInput('customerName', 200),
-        'address' => orderInput('address', 500),
-        'email' => orderInput('email', 254),
-        'phone' => orderInput('phone', 50),
+        'identity' => ['id' => orderInput('id', 80)],
+        'customer' => [
+            'name' => orderInput('customerName', 200),
+            'address' => orderInput('address', 500),
+            'email' => orderInput('email', 254),
+            'phone' => orderInput('phone', 50),
+        ],
+        'products' => [],
+        'pricing' => ['subtotalCents' => 0, 'vatCents' => 0, 'totalCents' => 0],
+        'metadata' => ['createdBy' => $_SESSION['user'], 'createdAt' => gmdate('Y-m-d H:i:s')],
     ];
-    if (!filter_var($order['email'], FILTER_VALIDATE_EMAIL)) jsonResponse(['error' => 'Enter a valid email address.'], 422);
+    if (!filter_var($order['customer']['email'], FILTER_VALIDATE_EMAIL)) jsonResponse(['error' => 'Enter a valid email address.'], 422);
     $selected = $_POST['selected'] ?? [];
     $quantities = $_POST['quantity'] ?? [];
     if (!is_array($selected) || !$selected || !is_array($quantities)) jsonResponse(['error' => 'Select at least one product and enter its quantity.'], 422);
-    $order['products'] = [];
-    $subtotal = 0;
     foreach ($selected as $id => $enabled) {
         if (!isset(PRODUCTS[$id])) jsonResponse(['error' => 'An unknown product was selected.'], 422);
         $quantity = filter_var($quantities[$id] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 10000]]);
         if ($quantity === false) jsonResponse(['error' => 'Selected product quantities must be whole numbers from 1 to 10,000.'], 422);
         $product = PRODUCTS[$id];
         $order['products'][$id] = $product + ['quantity' => $quantity];
-        $subtotal += $product['priceCents'] * $quantity;
+        $order['pricing']['subtotalCents'] += $product['priceCents'] * $quantity;
     }
-    $order['subtotalCents'] = $subtotal;
-    $order['vatCents'] = intdiv($subtotal * 21 + 50, 100);
-    $order['totalCents'] = $subtotal + $order['vatCents'];
-    $order['createdBy'] = $_SESSION['user'];
-    $order['createdAt'] = gmdate('Y-m-d H:i:s');
+    $order['pricing']['vatCents'] = intdiv($order['pricing']['subtotalCents'] * 21 + 50, 100);
+    $order['pricing']['totalCents'] = $order['pricing']['subtotalCents'] + $order['pricing']['vatCents'];
     return $order;
 }
 
@@ -52,15 +52,14 @@ function saveOrder(array $order): void {
         $contents = stream_get_contents($file);
         if ($contents === false) throw new RuntimeException();
         $orders = decodeOrders($contents);
-        foreach ($orders as $existing) {
-            if ($existing['id'] === $order['id']) {
-                flock($file, LOCK_UN);
-                fclose($file);
-                jsonResponse(['error' => 'This order ID already exists. Choose a unique ID.'], 409);
-            }
+        $key = orderKey($order['identity']['id']);
+        if (isset($orders[$key])) {
+            flock($file, LOCK_UN);
+            fclose($file);
+            jsonResponse(['error' => 'This order ID already exists. Choose a unique ID.'], 409);
         }
-        $orders[] = $order;
-        $json = json_encode($orders, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        $orders[$key] = $order;
+        $json = encodeOrders($orders);
         rewind($file);
         $written = fwrite($file, $json);
         if ($written !== strlen($json)) throw new RuntimeException();
@@ -78,4 +77,4 @@ $order = buildOrder();
 saveOrder($order);
 http_response_code(200);
 header('Content-Type: text/plain; charset=utf-8');
-echo money($order['totalCents']);
+echo money($order['pricing']['totalCents']);
