@@ -29,9 +29,6 @@
     <Directory /var/www/html/restaurantOrderApp/desplegament>
         Require all denied
     </Directory>
-    <Directory /var/www/html/restaurantOrderApp/proves>
-        Require all denied
-    </Directory>
     <DirectoryMatch "/\.">
         Require all denied
     </DirectoryMatch>

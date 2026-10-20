@@ -37,7 +37,6 @@ aplicacio/servidor/view-orders.php  GET all orders, or ?id=ORDER-ID
 usuaris/users.json                Unmodified predefined account
 comandes/orders.json              Created automatically on first saved order
 desplegament/                     Apache HTTPS example
-proves/                          Isolated HTTP integration checks
 ```
 
 ## Using the application
@@ -57,9 +56,9 @@ The attachment contains two inconsistencies: it sometimes says `orders.js`, alth
 
 ## Verification
 
-Run `python3 proves/integration.py` on a machine with PHP 8.1+ available. The checks copy the application into a temporary directory, use a temporary test account, and start an isolated PHP server. They never modify the provided account or real orders. They check authentication, access control, CSRF, request methods, VAT, persistence, duplicates, escaped table output, missing file/order errors, corrupt storage, and logout. This verifies PHP behavior; Apache JSON restrictions and HTTPS need separate checks against the configured Apache deployment.
+On a configured PHP and Apache server, manually verify sign-in, required fields, product selection, order creation, duplicate IDs, and order lookup. A notebook and two bottles must produce a total of €72.60 including VAT. Check that missing orders and unavailable storage return HTTP 404, and that protected operations require sign-in. Confirm HTTPS and the Apache restrictions on direct JSON access.
 
-PHP and Apache are not installed in the provided editing environment, so runtime verification and HTTPS activation require a PHP-enabled machine. A test script being supplied is not evidence that it passed.
+PHP and Apache are not installed in the provided editing environment, so runtime verification and HTTPS activation require a PHP-enabled machine.
 
 ## Version control
 
