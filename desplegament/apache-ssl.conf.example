@@ -1,0 +1,38 @@
+# Replace the hostname, project path, and certificate paths before enabling.
+# Requires Apache 2.4, mod_ssl, mod_headers, and PHP 8.1+ integration.
+<VirtualHost *:80>
+    ServerName orders.example.com
+    Redirect permanent / https://orders.example.com/
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName orders.example.com
+    DocumentRoot /var/www/html/restaurantOrderApp
+
+    SSLEngine on
+    SSLCertificateFile /etc/letsencrypt/live/orders.example.com/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/orders.example.com/privkey.pem
+    Header always set Strict-Transport-Security "max-age=31536000"
+
+    <Directory /var/www/html/restaurantOrderApp>
+        Options -Indexes
+        AllowOverride All
+        Require all granted
+        DirectoryIndex index.html
+    </Directory>
+    <Directory /var/www/html/restaurantOrderApp/usuaris>
+        Require all denied
+    </Directory>
+    <Directory /var/www/html/restaurantOrderApp/comandes>
+        Require all denied
+    </Directory>
+    <Directory /var/www/html/restaurantOrderApp/desplegament>
+        Require all denied
+    </Directory>
+    <Directory /var/www/html/restaurantOrderApp/proves>
+        Require all denied
+    </Directory>
+    <DirectoryMatch "/\.">
+        Require all denied
+    </DirectoryMatch>
+</VirtualHost>
