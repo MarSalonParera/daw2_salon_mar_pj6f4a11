@@ -7,7 +7,7 @@ Reviewed on 20 October 2026. This records implementation evidence; it does not a
 | Git and GitHub | Existing repository, two real historical commits, GitHub origin configured | Connected; final reviewed changes must be committed and pushed before submission |
 | HTTPS | `deployment/setup-local.sh`, local TLS virtual host, redirect, production TLS example | Prepared; activation requires administrator password; local certificate is self-signed |
 | HTTP methods and status | GET for session, catalogue and tables; POST for sign-in, sign-out and creation; explicit 200/404/405 | Tested with PHP HTTP integration checks |
-| File and JSON storage | One `orders/orders.json`, created on first successful order; locked read/write, JSON decoding and schema validation | Tested in isolated storage |
+| File and JSON storage | One `orders/orders.json`, initialized during setup; missing files return 404 on reads and writes; locked read/write, JSON decoding and schema validation | Tested in isolated storage |
 | Reusable PHP functions | Shared method, authentication, CSRF, JSON, decoding, escaping, rendering and table functions; separate creation functions | Implemented |
 | Multidimensional associative arrays | Product catalogue, customers/order fields, selected products and persisted order records use nested associative arrays | Implemented; the JSON root is a list of order objects |
 | Business logic I | Home, guide, authentication, operations menu, creation, viewing menu, all orders and exact-ID lookup | Implemented; server requests tested, browser walkthrough remains |
@@ -25,7 +25,7 @@ find application tests -name '*.php' -exec php -l {} \;
 php tests/integration.php
 ```
 
-The 49 checks pass against a disposable PHP server with a temporary password hash and temporary orders. They do not alter `users/users.json` or real customer orders. They cover authentication, cookie flags, protected endpoints, GET/POST restrictions, CSRF, missing fields, email and quantity validation, four products, 21% VAT, plain-text creation response, JSON persistence, duplicates, complete HTML tables, escaping, missing file/order, malformed storage, unavailable directory, and logout.
+The 52 checks pass against a disposable PHP server with a temporary password hash and temporary orders. They do not alter `users/users.json` or real customer orders. They cover authentication, cookie flags, protected endpoints, GET/POST restrictions, CSRF, missing fields, email and quantity validation, four products, 21% VAT, plain-text creation response, JSON persistence, duplicates, complete HTML tables, escaping, missing file/order, malformed storage, unavailable directory, and logout.
 
 Apache was independently checked: the session endpoint responds with HTTP 200 and `application/json`. Direct access to `users/users.json` currently returns HTTP 200 because the active Apache configuration ignores the project's `.htaccess`. This must be fixed by activating the prepared Apache configuration before using real credentials or customer records. HTTPS and actual Apache write permissions also remain pending that administrator step. A passing PHP development-server test does not prove Apache file restrictions or HTTPS activation. Validate those after running the setup command.
 
@@ -49,7 +49,7 @@ After activation, verify:
 
 ## Presentation walkthrough
 
-Account configuration: run `php deployment/set-user.php` in the project terminal to choose the username and password. Only a bcrypt hash is saved in `users/users.json`; failed validation leaves the previous account intact. This tool is CLI-only. The website login checks both fields before making a request, verifies the saved hash on the server, opens the operations menu on success, and shows an error on the home screen on failure. The operations menu uses direct action buttons at the user’s request. The viewing menu follows section 6: choose all orders or one by ID and use one Continue button. The one-order screen includes its input, GET submit button and links to the viewing menu, operations menu and home. Previous isolated JavaScript checks covered authentication; a full browser walkthrough remains necessary.
+Account configuration: run `php deployment/set-user.php` in the project terminal to choose the username and password. Only a bcrypt hash is saved in `users/users.json`; failed validation leaves the previous account intact. This tool is CLI-only. The website login checks both fields before making a request, verifies the saved hash on the server, opens the operations menu on success, and shows an error on the home screen on failure. The operations menu follows section 4: choose creation or viewing and use one Continue button. Return links are styled as buttons on client screens and server-generated pages. The viewing menu follows section 6: choose all orders or one by ID and use one Continue button. The one-order screen includes its input, GET submit button and links to the viewing menu, operations menu and home. Previous isolated JavaScript checks covered authentication; a full browser walkthrough remains necessary.
 
 1. Show the logo and application name, open the guide, and return home.
 2. Demonstrate required sign-in fields and invalid authentication returning home with an error.

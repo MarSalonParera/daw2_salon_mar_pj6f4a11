@@ -115,6 +115,11 @@ try {
     check(count($products) === 4, 'Exactly four server-priced products');
     check($call('view-orders.php')['status'] === 404, 'Missing orders file returns 404');
     $order = ['token' => $token, 'id' => 'TEST-001', 'customerName' => '<script>alert(1)</script>', 'address' => 'Example Street, Barcelona', 'email' => 'test@example.com', 'phone' => '+34 123456789', 'selected' => ['notebook' => '1', 'bottle' => '1'], 'quantity' => ['notebook' => '1', 'bottle' => '2']];
+    $missingStorage = $call('create-order.php', $order);
+    check($missingStorage['status'] === 404 && str_contains($missingStorage['headers'], 'text/html'), 'Creation with missing file returns HTML 404');
+    check(str_contains($missingStorage['body'], '#view') && str_contains($missingStorage['body'], '#operations') && str_contains($missingStorage['body'], 'href="../client/index.html"'), 'Missing file error includes all three return buttons');
+    check(!file_exists($storage), 'Creation does not recreate missing orders file');
+    file_put_contents($storage, "[]\n");
     foreach ([
         'Missing customer name' => ['customerName' => ''],
         'Invalid email' => ['email' => 'invalid'],

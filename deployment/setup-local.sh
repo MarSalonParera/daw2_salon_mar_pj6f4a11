@@ -26,6 +26,10 @@ install -m 644 "$project_root/deployment/apache-local-access.conf" /etc/apache2/
 # PHP can write orders, but cannot modify the fixed user fixture.
 chgrp www-data "$project_root/orders"
 chmod 2775 "$project_root/orders"
+# Initialize storage during setup; request handlers never recreate missing files.
+if [ ! -e "$project_root/orders/orders.json" ]; then
+    printf '[]\n' > "$project_root/orders/orders.json"
+fi
 if [ -f "$project_root/orders/orders.json" ]; then
     chgrp www-data "$project_root/orders/orders.json"
     chmod 660 "$project_root/orders/orders.json"

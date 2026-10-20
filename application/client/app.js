@@ -198,6 +198,17 @@ async function saveOrder(event) {
   }
 }
 
+function openOperation(event) {
+  event.preventDefault();
+  const operation = document.getElementById('operation').value;
+  if (!['create', 'view'].includes(operation)) {
+    showNotice('Choose an available operation.');
+    return;
+  }
+  showNotice('');
+  location.hash = operation;
+}
+
 function openOrderView(event) {
   event.preventDefault();
   const operation = document.getElementById('view-option').value;
@@ -214,6 +225,7 @@ function openOrderView(event) {
 async function start() {
   document.getElementById('login-form').addEventListener('submit', authenticate);
   document.getElementById('order-form').addEventListener('submit', saveOrder);
+  document.getElementById('operations-form').addEventListener('submit', openOperation);
   document.getElementById('view-menu-form').addEventListener('submit', openOrderView);
   document.getElementById('logout').addEventListener('click', async () => {
     const data = new FormData();

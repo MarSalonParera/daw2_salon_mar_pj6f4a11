@@ -45,7 +45,7 @@ application/server/products.php GET server-formatted catalogue
 application/server/create-order.php POST validation, calculation, persistence
 application/server/view-orders.php  GET all orders, or ?id=ORDER-ID
 users/users.json                Configured account with bcrypt password hash
-orders/orders.json              Created automatically on first saved order
+orders/orders.json              Existing JSON storage; initialized to [] during setup
 deployment/                     Apache HTTPS example
 tests/integration.php           Isolated PHP HTTP integration checks
 RUBRIC.md                       Evidence and presentation checklist
@@ -54,7 +54,7 @@ RUBRIC.md                       Evidence and presentation checklist
 ## Using the application
 
 1. Open the home screen, read the guide, and sign in.
-2. Click “Create a new order” or “View orders” in the operations menu.
+2. Choose “Create a new order” or “View orders” in the operations menu and click its single “Continue” button.
 3. To create an order, enter a unique order ID, full customer name, address, email, and phone. Check at least one product, enter a quantity from 1 to 10,000, and save. The server returns only the formatted total including VAT on success, with HTTP 200.
 4. To review orders, click “View orders”, choose all orders or one order by ID, and press the single “Continue” button. For one order, enter its exact, case-sensitive ID on the next screen and click “Find order”. The server returns HTML tables and HTTP 200. Missing files and missing IDs return an HTML error page and HTTP 404, with links to the order menu, operations menu, and home.
 
@@ -64,11 +64,11 @@ The catalogue is defined once in PHP: notebook €12, bottle €24, tote bag €
 
 Every saved record contains customer data, selected products and their quantities and unit prices, subtotal, VAT, total, the authenticated author, and a UTC creation timestamp. A lock covers the complete read/duplicate-check/write transaction to prevent concurrent requests overwriting each other. Invalid JSON is reported rather than silently discarded. A single local JSON file is suited to this assignment; it has no database transactions or automated backups.
 
-The attachment contains two inconsistencies: it sometimes says `orders.js`, although the specified file is `orders.json`; and it requires both first-order creation and an error when the file is missing. This implementation uses `orders.json`, creates it for the first order, and returns 404 for reads before that file exists. File creation/read/write failures also return the requested HTML 404 page.
+The file is `orders/orders.json` (`orders.js` in the attachment is a typo). At the user’s request, both reading and saving require an existing file: a missing or inaccessible file returns HTTP 404 with an HTML error message and three return buttons. The setup script initializes a missing file to `[]`; request handlers do not create it. Existing orders are preserved during setup.
 
 ## Verification
 
-Run `php tests/integration.php`. All 49 checks passed against an isolated copy with temporary credentials and order storage. No Python is required. All PHP files passed `php -l`. Apache's session endpoint was independently confirmed to return HTTP 200 and JSON with PHP 8.4 installed.
+Run `php tests/integration.php`. All 52 checks passed against an isolated copy with temporary credentials and order storage. No Python is required. All PHP files passed `php -l`. Apache's session endpoint was independently confirmed to return HTTP 200 and JSON with PHP 8.4 installed.
 
 The current Apache configuration ignores `.htaccess`: a direct request to `users/users.json` returned HTTP 200 during verification. Activate the prepared setup before using real credentials or customer records, then confirm direct JSON requests return 403. Also walk through the browser screens and confirm HTTPS. See `RUBRIC.md` for the complete evidence, remaining deployment checks and presentation sequence. No browser automation was available for this review.
 

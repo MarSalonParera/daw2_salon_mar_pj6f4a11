@@ -41,9 +41,9 @@ function buildOrder(): array {
 }
 
 function saveOrder(array $order): void {
-    // c+b creates the first file without truncating an existing order history.
-    $file = @fopen(ORDERS_FILE, 'c+b');
-    if ($file === false) renderPage('Orders file unavailable', '<p>The orders file could not be created or opened. Ask the administrator to check directory and file permissions.</p>', 404);
+    // Require the existing file: a missing file must produce HTTP 404.
+    $file = @fopen(ORDERS_FILE, 'r+b');
+    if ($file === false) renderPage('Orders file unavailable', '<p>The orders file could not be found or opened. Ask the administrator to check the file and its permissions.</p>', 404);
     if (!flock($file, LOCK_EX)) {
         fclose($file);
         renderPage('Orders file unavailable', '<p>The orders file could not be opened for writing.</p>', 404);
@@ -51,7 +51,7 @@ function saveOrder(array $order): void {
     try {
         $contents = stream_get_contents($file);
         if ($contents === false) throw new RuntimeException();
-        $orders = $contents === '' ? [] : decodeOrders($contents);
+        $orders = decodeOrders($contents);
         foreach ($orders as $existing) {
             if ($existing['id'] === $order['id']) {
                 flock($file, LOCK_UN);
